@@ -374,4 +374,101 @@ void main() {
       );
     });
   });
+
+  group('the server\'s next offset change', () {
+    // The night US daylight saving ended in 2026: New York went from UTC-4 to
+    // UTC-5 at 06:00 UTC.
+    final tonight = ServerTime.tryParse({
+      'utcTime': '2026-11-01T05:16:04Z',
+      'utcOffsetSeconds': -14400,
+      'nextOffsetChangeUtc': '2026-11-01T06:00:00Z',
+      'nextUtcOffsetSeconds': -18000,
+    })!;
+    final deviceNow = DateTime.utc(2026, 11, 1, 5, 16, 4);
+
+    test('is read from the answer', () {
+      expect(tonight.nextOffsetChange, DateTime.utc(2026, 11, 1, 6));
+      expect(tonight.nextOffset, const Duration(hours: -5));
+    });
+
+    test('is left out when it is missing, not ahead or nonsense', () {
+      ServerTime parse(Map<String, dynamic> extra) => ServerTime.tryParse({
+        'utcTime': '2026-11-01T05:16:04Z',
+        'utcOffsetSeconds': -14400,
+        ...extra,
+      })!;
+      expect(parse({}).nextOffsetChange, isNull);
+      expect(
+        parse({
+          'nextOffsetChangeUtc': '2026-11-01T05:00:00Z',
+          'nextUtcOffsetSeconds': -18000,
+        }).nextOffsetChange,
+        isNull,
+      );
+      expect(
+        parse({
+          'nextOffsetChangeUtc': '2026-11-01T06:00:00Z',
+          'nextUtcOffsetSeconds': 'x',
+        }).nextOffset,
+        isNull,
+      );
+    });
+
+    test('makes an opening after the clocks go back an hour later', () {
+      final clock = ServerClock.from(tonight, deviceNow);
+      expect(
+        clock.instantOf(DateTime(2026, 11, 1, 7)),
+        DateTime.utc(2026, 11, 1, 12),
+      );
+    });
+
+    test('leaves an opening before the change as the wall clock says', () {
+      final clock = ServerClock.from(tonight, deviceNow);
+      expect(
+        clock.instantOf(DateTime(2026, 11, 1, 1, 50)),
+        DateTime.utc(2026, 11, 1, 5, 50),
+      );
+    });
+
+    test('uses the current offset without the change', () {
+      final clock = ServerClock.from(
+        ServerTime(
+          utcTime: DateTime.utc(2026, 11, 1, 5, 16, 4),
+          utcOffset: const Duration(hours: -4),
+        ),
+        deviceNow,
+      );
+      expect(
+        clock.instantOf(DateTime(2026, 11, 1, 7)),
+        DateTime.utc(2026, 11, 1, 11),
+      );
+    });
+
+    test('makes an opening after the clocks go forward an hour sooner', () {
+      final clock = ServerClock.from(
+        ServerTime.tryParse({
+          'utcTime': '2027-03-13T17:00:00Z',
+          'utcOffsetSeconds': -18000,
+          'nextOffsetChangeUtc': '2027-03-14T07:00:00Z',
+          'nextUtcOffsetSeconds': -14400,
+        })!,
+        DateTime.utc(2027, 3, 13, 17),
+      );
+      expect(
+        clock.instantOf(DateTime(2027, 3, 14, 7)),
+        DateTime.utc(2027, 3, 14, 11),
+      );
+    });
+
+    test('gives the instant on this device\'s clock', () {
+      final clock = ServerClock.from(
+        tonight,
+        deviceNow.subtract(const Duration(seconds: 30)),
+      );
+      expect(
+        clock.instantOf(DateTime(2026, 11, 1, 7)),
+        DateTime.utc(2026, 11, 1, 11, 59, 30),
+      );
+    });
+  });
 }

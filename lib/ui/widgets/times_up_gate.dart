@@ -40,8 +40,7 @@ class TimesUpGate extends StatelessWidget {
   final Future<void> Function()? onSwitchUser;
 
   /// The clock "today" and "tomorrow" are read against, for a test. Defaults
-  /// to the clock the schedule is judged by, the server's when it is known,
-  /// which is the one the next opening is on.
+  /// to this device's, which is the one the next opening is named in.
   final DateTime Function()? now;
 
   /// The page the app is on and what tells this it changed, for a test.
@@ -78,7 +77,7 @@ class TimesUpGate extends StatelessWidget {
         }
         return _TimesUp(
           nextAccess: watched.status.nextAccess,
-          now: now ?? () => watched.scheduleNow,
+          now: now ?? watched.now,
           onSwitchUser: onSwitchUser ?? _openUserPicker,
         );
       },

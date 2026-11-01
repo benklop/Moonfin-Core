@@ -217,11 +217,17 @@ class AccessScheduleService extends ChangeNotifier {
     final moment = scheduleNow;
     final byClock = AccessScheduleEvaluator.isAllowed(_schedules, moment);
     final allowed = refused == null ? byClock : !refused;
-    // The time to come back is worked out on this device's clock, so it's only
-    // named when that clock agrees with the server.
-    final next = allowed || byClock
+    // The time to come back is worked out on the schedule's clock, so it's only
+    // named when that clock agrees with the server. It's handed on in this
+    // device's own time, since that is the clock the viewer reads: one on the
+    // server's wall clock is turned into an instant first.
+    final opening = allowed || byClock
         ? null
         : AccessScheduleEvaluator.nextAccessStart(_schedules, moment);
+    final clock = _serverClock;
+    final next = opening == null || clock == null
+        ? opening
+        : clock.instantOf(opening).toLocal();
 
     final wasAllowed = _status.allowed;
     _setStatus(

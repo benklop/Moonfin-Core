@@ -123,17 +123,41 @@ class ServerTime {
   /// The server's offset from UTC then, east positive.
   final Duration utcOffset;
 
-  const ServerTime({required this.utcTime, required this.utcOffset});
+  /// When the server's offset next changes, in UTC, or null when the plugin
+  /// doesn't say or it doesn't change.
+  final DateTime? nextOffsetChange;
 
-  /// Null when the answer doesn't carry a UTC time and an offset.
+  /// The server's offset after [nextOffsetChange].
+  final Duration? nextOffset;
+
+  const ServerTime({
+    required this.utcTime,
+    required this.utcOffset,
+    this.nextOffsetChange,
+    this.nextOffset,
+  });
+
+  /// Null when the answer doesn't carry a UTC time and an offset. The next
+  /// offset change is left out when it's missing, isn't ahead or doesn't make
+  /// sense, since an older plugin doesn't send it.
   static ServerTime? tryParse(Object? json) {
     if (json is! Map<String, dynamic>) return null;
-    final utc = DateTime.tryParse(json['utcTime'] as String? ?? '');
+    final utcValue = json['utcTime'];
+    final utc = utcValue is String ? DateTime.tryParse(utcValue) : null;
     final offset = json['utcOffsetSeconds'];
     if (utc == null || offset is! num || !offset.isFinite) return null;
+    final changeValue = json['nextOffsetChangeUtc'];
+    final change = changeValue is String
+        ? DateTime.tryParse(changeValue)
+        : null;
+    final after = json['nextUtcOffsetSeconds'];
+    final hasChange =
+        change != null && change.isAfter(utc) && after is num && after.isFinite;
     return ServerTime(
       utcTime: utc.toUtc(),
       utcOffset: Duration(seconds: offset.round()),
+      nextOffsetChange: hasChange ? change.toUtc() : null,
+      nextOffset: hasChange ? Duration(seconds: after.round()) : null,
     );
   }
 }
@@ -147,13 +171,51 @@ class ServerClock {
   /// The server's offset from UTC.
   final Duration offset;
 
-  const ServerClock({required this.skew, required this.offset});
+  /// When the server's offset next changes, on the server's UTC clock.
+  final DateTime? nextChange;
+
+  /// The server's offset after [nextChange].
+  final Duration? nextOffset;
+
+  const ServerClock({
+    required this.skew,
+    required this.offset,
+    this.nextChange,
+    this.nextOffset,
+  });
 
   /// The clock as [time] says it was when this device's clock read [deviceNow].
   factory ServerClock.from(ServerTime time, DateTime deviceNow) => ServerClock(
     skew: time.utcTime.difference(deviceNow.toUtc()),
     offset: time.utcOffset,
+    nextChange: time.nextOffsetChange,
+    nextOffset: time.nextOffset,
   );
+
+  /// The instant, in UTC on this device's clock, of a time whose fields are
+  /// the server's wall clock, such as a next opening from
+  /// [AccessScheduleEvaluator]. When it falls after the server's next offset
+  /// change, the offset after it is used, so a wall time after the clocks go
+  /// back is an hour later than the current offset says and one after they go
+  /// forward an hour sooner. Without that change the current offset is used.
+  DateTime instantOf(DateTime wall) {
+    final fields = DateTime.utc(
+      wall.year,
+      wall.month,
+      wall.day,
+      wall.hour,
+      wall.minute,
+      wall.second,
+      wall.millisecond,
+    );
+    var serverUtc = fields.subtract(offset);
+    final change = nextChange;
+    final after = nextOffset;
+    if (change != null && after != null && !serverUtc.isBefore(change)) {
+      serverUtc = fields.subtract(after);
+    }
+    return serverUtc.subtract(skew);
+  }
 
   /// A date whose fields are the server's wall clock when this device's clock
   /// reads [deviceNow], whatever zone this device is in, so [AccessScheduleEvaluator]

@@ -548,7 +548,18 @@ void main() {
 
           expect(h.service.status.allowed, isFalse);
           expect(h.blocked, 1);
-          expect(h.service.status.nextAccess, _at(26, 8));
+          // 08:00 on the server's clock, nine hours east of UTC, is 23:00
+          // UTC the day before. It's named as that instant on this device's
+          // clock, in this device's zone.
+          final skew = DateTime.utc(
+            2026,
+            10,
+            19,
+            12,
+          ).difference(_at(19, 12).toUtc());
+          final next = h.service.status.nextAccess!;
+          expect(next.isUtc, isFalse);
+          expect(next.toUtc(), DateTime.utc(2026, 10, 25, 23).subtract(skew));
           h.service.dispose();
         });
       },
