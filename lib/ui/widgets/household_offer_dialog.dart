@@ -27,7 +27,8 @@ class HouseholdOfferDialog extends StatefulWidget {
   }) {
     return showFocusRestoringDialog<HouseholdOfferChoice>(
       context: context,
-      builder: (_) => HouseholdOfferDialog(message: message, onAddThem: onAddThem),
+      builder: (_) =>
+          HouseholdOfferDialog(message: message, onAddThem: onAddThem),
     );
   }
 
@@ -63,47 +64,50 @@ class _HouseholdOfferDialogState extends State<HouseholdOfferDialog> {
       shape: RoundedRectangleBorder(borderRadius: AppRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              widget.message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 320),
-              child: _isAdding
-                  ? const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: Center(child: CircularProgressIndicator()),
-                    )
-                  : Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FilledButton(
-                          focusNode: _addButtonFocus,
-                          autofocus: true,
-                          onPressed: _addThem,
-                          child: Text(l10n.householdOfferAddThem),
-                        ),
-                        const SizedBox(height: 12),
-                        OutlinedButton(
-                          onPressed: () =>
-                              _close(HouseholdOfferChoice.notNow),
-                          child: Text(l10n.householdOfferNotNow),
-                        ),
-                        const SizedBox(height: 12),
-                        TextButton(
-                          onPressed: () =>
-                              _close(HouseholdOfferChoice.dontAskAgain),
-                          child: Text(l10n.householdOfferDontAskAgain),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 24),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 320),
+                child: _isAdding
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FilledButton(
+                            focusNode: _addButtonFocus,
+                            autofocus: true,
+                            onPressed: _addThem,
+                            child: Text(l10n.householdOfferAddThem),
+                          ),
+                          const SizedBox(height: 12),
+                          OutlinedButton(
+                            onPressed: () =>
+                                _close(HouseholdOfferChoice.notNow),
+                            child: Text(l10n.householdOfferNotNow),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton(
+                            onPressed: () =>
+                                _close(HouseholdOfferChoice.dontAskAgain),
+                            child: Text(l10n.householdOfferDontAskAgain),
+                          ),
+                        ],
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -137,21 +141,24 @@ class HouseholdNoticeDialog extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: AppRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              autofocus: true,
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.ok),
-            ),
-          ],
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 640),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                autofocus: true,
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text(l10n.ok),
+              ),
+            ],
+          ),
         ),
       ),
     );
