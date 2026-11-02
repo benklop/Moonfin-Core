@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:moonfin_design/moonfin_design.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'overlay_sheet.dart';
@@ -58,48 +59,52 @@ class _HouseholdOfferDialogState extends State<HouseholdOfferDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: EdgeInsets.only(bottom: _isAdding ? 0 : 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            widget.message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 24),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: _isAdding
-                ? const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Center(child: CircularProgressIndicator()),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      FilledButton(
-                        focusNode: _addButtonFocus,
-                        autofocus: true,
-                        onPressed: _addThem,
-                        child: Text(l10n.householdOfferAddThem),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: () => _close(HouseholdOfferChoice.notNow),
-                        child: Text(l10n.householdOfferNotNow),
-                      ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () =>
-                            _close(HouseholdOfferChoice.dontAskAgain),
-                        child: Text(l10n.householdOfferDontAskAgain),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: _isAdding
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FilledButton(
+                          focusNode: _addButtonFocus,
+                          autofocus: true,
+                          onPressed: _addThem,
+                          child: Text(l10n.householdOfferAddThem),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: () =>
+                              _close(HouseholdOfferChoice.notNow),
+                          child: Text(l10n.householdOfferNotNow),
+                        ),
+                        const SizedBox(height: 12),
+                        TextButton(
+                          onPressed: () =>
+                              _close(HouseholdOfferChoice.dontAskAgain),
+                          child: Text(l10n.householdOfferDontAskAgain),
+                        ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -128,23 +133,26 @@ class HouseholdNoticeDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 24),
-          FilledButton(
-            autofocus: true,
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n.ok),
-          ),
-        ],
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              autofocus: true,
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(l10n.ok),
+            ),
+          ],
+        ),
       ),
     );
   }
