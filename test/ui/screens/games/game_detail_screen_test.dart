@@ -164,6 +164,7 @@ GameDetail _gameDetail({
   String? userCoreOverride,
   String? userBackendOverride,
   String? coreCompatibilityReason,
+  GameStreamOffer? stream,
 }) => GameDetail(
   id: id,
   title: title,
@@ -179,6 +180,7 @@ GameDetail _gameDetail({
   userCoreOverride: userCoreOverride,
   userBackendOverride: userBackendOverride,
   coreCompatibilityReason: coreCompatibilityReason,
+  stream: stream,
 );
 
 /// Stubs `setGameBackendOverride` to succeed with the detail already
@@ -439,6 +441,84 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     },
   );
+
+  testWidgets('a RomM game that streams offers RomM in the player picker', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _registerInstalledCores(const []);
+    final psx = _gameDetail(
+      title: 'Vagrant Story',
+      system: 'PlayStation',
+      core: 'psx',
+      fileName: 'Vagrant Story.chd',
+      supportsBackendOverrides: true,
+      stream: const GameStreamOffer(label: 'DuckStation'),
+    );
+    when(() => gamesApi.getGame('library', 'game')).thenAnswer((_) async => psx);
+    when(
+      () => gamesApi.setGameBackendOverride('library', 'game', backend: 'stream'),
+    ).thenAnswer(
+      (_) async => _gameDetail(
+        title: 'Vagrant Story',
+        system: 'PlayStation',
+        core: 'psx',
+        supportsBackendOverrides: true,
+        userBackendOverride: 'stream',
+        stream: const GameStreamOffer(label: 'DuckStation'),
+      ),
+    );
+
+    await pumpDetailScreen(tester);
+    await openPlayerPicker(tester);
+
+    final dialog = find.byType(AlertDialog);
+    expect(
+      find.descendant(of: dialog, matching: find.text('Stream from RomM')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(of: dialog, matching: find.text('DuckStation')),
+    );
+    await tester.pumpAndSettle();
+
+    verify(
+      () => gamesApi.setGameBackendOverride('library', 'game', backend: 'stream'),
+    ).called(1);
+    verifyNever(
+      () => gamesApi.setGameCoreOverride(any(), any(), core: any(named: 'core')),
+    );
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('a RomM link from before streaming asks to link again', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    tester.view.physicalSize = const Size(1600, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await _registerInstalledCores(const []);
+    when(() => gamesApi.getGame('library', 'game')).thenAnswer(
+      (_) async => _gameDetail(
+        system: 'PlayStation',
+        core: 'psx',
+        supportsBackendOverrides: true,
+        stream: const GameStreamOffer(needsRelink: true),
+      ),
+    );
+
+    await pumpDetailScreen(tester);
+    await openPlayerPicker(tester);
+
+    expect(find.text('Link RomM again to stream this game'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
+  });
 
   testWidgets('Down from the app bar focuses the primary play action', (
     tester,

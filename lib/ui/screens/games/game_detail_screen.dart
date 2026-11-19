@@ -362,6 +362,18 @@ class _GameDetailScreenState extends State<GameDetailScreen> with RouteAware {
 
   void _play({required bool fresh}) {
     final game = _game;
+    if (game != null && _streams(game)) {
+      // RomM resumes from its newest save itself, so there's no fresh start.
+      context.push(
+        Destinations.gameStreamOf(
+          widget.libraryId,
+          game.id,
+          name: game.title,
+          label: game.stream?.label,
+        ),
+      );
+      return;
+    }
     if (game == null ||
         (_saveReadiness != _SaveReadiness.absent &&
             _saveReadiness != _SaveReadiness.available)) {
@@ -425,6 +437,10 @@ class _GameDetailScreenState extends State<GameDetailScreen> with RouteAware {
       _ownDialogDepth--;
     }
     if (selection == null) return;
+    if (selection.relink) {
+      if (mounted) unawaited(context.push(Destinations.rommAccount));
+      return;
+    }
 
     final games = _client.gamesApi;
     if (games == null) return;
@@ -1570,6 +1586,7 @@ class _PlayerIcon extends StatelessWidget {
 /// The libretro core's own name for the native player, such as "Snes9x", or the
 /// EmulatorJS core otherwise.
 String _playerName(GameDetail game) {
+  if (_streams(game)) return game.stream?.label ?? 'RomM';
   if (!_usesNativeBackend(game)) return _coreLabel(game.core);
   final coreId = libretroCoreId(game.core);
   return (coreId == null ? null : libretroCoreName(coreId)) ??
@@ -2016,12 +2033,16 @@ class _CoreSelection {
     required this.backend,
     required this.setBackend,
     required this.setCore,
+    this.relink = false,
   });
 
   final String? core;
   final String? backend;
   final bool setBackend;
   final bool setCore;
+
+  /// Opens the RomM account screen instead: the user's link predates streaming.
+  final bool relink;
 }
 
 /// One reachable (player, core) outcome shown as a row in the picker — pins
@@ -2035,6 +2056,9 @@ class _CoreRow {
     required this.setBackend,
     required this.setCore,
     this.detail,
+    this.isStream = false,
+    this.relink = false,
+    this.subtitle,
   });
 
   final String label;
@@ -2045,11 +2069,23 @@ class _CoreRow {
   final bool setCore;
   final String? detail;
 
+  /// Streams from RomM's emulator containers instead of playing here.
+  final bool isStream;
+  final bool relink;
+
+  /// Replaces the core name under [label], for the stream row.
+  final String? subtitle;
+
   _CoreSelection get selection => _CoreSelection(
-    core: setCore ? core : null,
-    backend: isEmulatorJs ? 'emulatorjs' : null,
+    core: setCore && !isStream ? core : null,
+    backend: isStream
+        ? 'stream'
+        : isEmulatorJs
+        ? 'emulatorjs'
+        : null,
     setBackend: setBackend,
-    setCore: setCore,
+    setCore: setCore && !isStream,
+    relink: relink,
   );
 }
 
@@ -2141,6 +2177,24 @@ List<_CoreRow> _buildCoreRows(GameDetail game) {
       );
     }
   }
+  final stream = game.stream;
+  if (stream != null && gameStreamingAvailable && setBackend) {
+    rows.add(
+      _CoreRow(
+        label: 'Stream from RomM',
+        core: game.core,
+        isEmulatorJs: false,
+        recommended: false,
+        setBackend: true,
+        setCore: false,
+        isStream: true,
+        relink: !stream.available,
+        subtitle: stream.available
+            ? stream.label
+            : 'Link RomM again to stream this game',
+      ),
+    );
+  }
   return rows;
 }
 
@@ -2161,6 +2215,7 @@ class _CorePickerDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveNative = _usesNativeBackend(game);
+    final streaming = _usesStreamOverride(game);
     final rows = _buildCoreRows(game);
     return AlertDialog(
       title: const Text('Choose player'),
@@ -2173,13 +2228,17 @@ class _CorePickerDialog extends StatelessWidget {
               for (final row in rows)
                 _CorePickerOption(
                   label: row.label,
-                  subtitle: row.recommended
-                      ? '${_coreLabel(row.core)} (Recommended)'
-                      : _coreLabel(row.core),
+                  subtitle:
+                      row.subtitle ??
+                      (row.recommended
+                          ? '${_coreLabel(row.core)} (Recommended)'
+                          : _coreLabel(row.core)),
                   detail: row.detail,
-                  selected:
-                      row.isEmulatorJs == !effectiveNative &&
-                      row.core == game.core,
+                  selected: row.isStream
+                      ? streaming
+                      : !streaming &&
+                            row.isEmulatorJs == !effectiveNative &&
+                            row.core == game.core,
                   onTap: () => Navigator.pop(context, row.selection),
                 ),
             ],
@@ -2265,6 +2324,18 @@ String _coreLabel(String core) => switch (core) {
 
 bool _usesEmulatorJsOverride(GameDetail game) =>
     game.userBackendOverride == 'emulatorjs';
+
+bool _usesStreamOverride(GameDetail game) =>
+    game.userBackendOverride == 'stream' && game.stream?.available == true;
+
+/// Whether Play streams the game from RomM: the user chose it, or it streams
+/// and there's no way to play it on this device.
+bool _streams(GameDetail game) {
+  if (game.stream?.available != true || !gameStreamingAvailable) return false;
+  return _usesStreamOverride(game) ||
+      !PlatformDetection.gamesPlaybackSupported ||
+      !gameCoreSupported(game.core);
+}
 
 bool _usesNativeBackend(GameDetail game) =>
     !_usesEmulatorJsOverride(game) && usesNativeGameBackendFor(game.core);

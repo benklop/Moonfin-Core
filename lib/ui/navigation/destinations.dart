@@ -102,6 +102,7 @@ class Destinations {
   static const gameSystem = '/games/:libraryId/system/:systemId';
   static const gameDetail = '/game/:libraryId/:gameId';
   static const gamePlayer = '/game-player/:libraryId/:gameId';
+  static const gameStream = '/game-stream/:libraryId/:gameId';
   static const rommAccount = '/romm-account';
 
   // Live TV
@@ -277,6 +278,23 @@ class Destinations {
       if (!hardwareRenderingEnabled) 'hw=0',
     ];
     return '$base?${params.join('&')}';
+  }
+
+  static String gameStreamOf(
+    String libraryId,
+    String gameId, {
+    String? name,
+    String? label,
+  }) {
+    final base =
+        '/game-stream/${Uri.encodeComponent(libraryId)}/${Uri.encodeComponent(gameId)}';
+    final params = <String>[
+      if (name != null && name.isNotEmpty)
+        'name=${Uri.encodeQueryComponent(name)}',
+      if (label != null && label.isNotEmpty)
+        'label=${Uri.encodeQueryComponent(label)}',
+    ];
+    return params.isEmpty ? base : '$base?${params.join('&')}';
   }
 
   static String genre(

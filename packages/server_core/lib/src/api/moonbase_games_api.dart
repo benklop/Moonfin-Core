@@ -398,6 +398,71 @@ class MoonbaseGamesApi implements GamesApi {
     }
   }
 
+  @override
+  Future<GameStreamSession> startStream(String libraryId, String gameId) =>
+      _streamCall(
+        () => _dio.post(_streamPath(libraryId, gameId)),
+        GameStreamSession.fromJson,
+      );
+
+  @override
+  Future<GameStreamState> streamState(
+    String libraryId,
+    String gameId,
+    String sessionId,
+  ) => _streamCall(
+    () => _dio.get(_streamPath(libraryId, gameId, sessionId)),
+    GameStreamState.fromJson,
+  );
+
+  @override
+  Future<GameStreamState> heartbeatStream(
+    String libraryId,
+    String gameId,
+    String sessionId,
+  ) => _streamCall(
+    () => _dio.post('${_streamPath(libraryId, gameId, sessionId)}/Heartbeat'),
+    GameStreamState.fromJson,
+  );
+
+  @override
+  Future<void> endStream(String libraryId, String gameId, String sessionId) =>
+      _streamCall(
+        () => _dio.delete(_streamPath(libraryId, gameId, sessionId)),
+        (_) {},
+      );
+
+  String _streamPath(String libraryId, String gameId, [String? sessionId]) =>
+      '/Moonfin/Games/${Uri.encodeComponent(libraryId)}/Games/${Uri.encodeComponent(gameId)}/Stream'
+      '${sessionId == null ? '' : '/${Uri.encodeComponent(sessionId)}'}';
+
+  /// Turns the plugin's `{error, romName}` answers into [GameStreamException].
+  /// A plugin without streaming answers 404 with no body.
+  Future<T> _streamCall<T>(
+    Future<Response> Function() send,
+    T Function(Map<String, dynamic>) parse,
+  ) async {
+    try {
+      final data = (await send()).data;
+      return parse(data is Map ? data.cast<String, dynamic>() : const {});
+    } on DioException catch (error) {
+      final body = error.response?.data;
+      if (body is Map && body['error'] is String) {
+        throw GameStreamException(
+          body['error'] as String,
+          romName: body['romName'] as String?,
+        );
+      }
+      if (error.response?.statusCode == 404) {
+        throw const GameStreamException('unavailable');
+      }
+      if (error.response == null) {
+        throw const GameStreamException('unreachable');
+      }
+      rethrow;
+    }
+  }
+
   String _withApiKey(String url) {
     final q = _apiKeyQuery;
     if (q.isEmpty) return url;

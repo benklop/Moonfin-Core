@@ -148,4 +148,29 @@ abstract class GamesApi {
 
   /// DELETE /Moonfin/Games/Romm/Account: stops using the user's RomM key.
   Future<RommAccount> unlinkRomm() async => RommAccount.unavailable;
+
+  /// POST /Moonfin/Games/{libraryId}/Games/{gameId}/Stream: asks RomM for one
+  /// of its emulator containers. RomM launches the game in the background, so
+  /// poll [streamState] for the room. Throws [GameStreamException].
+  Future<GameStreamSession> startStream(String libraryId, String gameId) =>
+      throw const GameStreamException('unavailable');
+
+  /// GET …/Stream/{sessionId}: starting, ready with the room, or ended.
+  Future<GameStreamState> streamState(
+    String libraryId,
+    String gameId,
+    String sessionId,
+  ) => throw const GameStreamException('unavailable');
+
+  /// POST …/Stream/{sessionId}/Heartbeat: keeps the session. RomM ends one
+  /// that goes three minutes without a heartbeat.
+  Future<GameStreamState> heartbeatStream(
+    String libraryId,
+    String gameId,
+    String sessionId,
+  ) => throw const GameStreamException('unavailable');
+
+  /// DELETE …/Stream/{sessionId}: saves the game in RomM and ends the session.
+  Future<void> endStream(String libraryId, String gameId, String sessionId) =>
+      throw const GameStreamException('unavailable');
 }

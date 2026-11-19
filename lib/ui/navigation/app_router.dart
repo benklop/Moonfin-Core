@@ -49,6 +49,7 @@ import '../screens/games/game_system_screen.dart';
 import '../screens/games/game_detail_screen.dart';
 import '../screens/games/romm_account_screen.dart';
 import '../screens/playback/game_emulator_screen.dart';
+import '../screens/playback/game_stream_screen.dart';
 import '../screens/playback/native_game_player_screen.dart';
 import '../screens/detail/item_list_screen.dart';
 import '../screens/home/home_screen.dart';
@@ -576,6 +577,18 @@ final appRouter = GoRouter(
     GoRoute(
       path: Destinations.rommAccount,
       builder: (context, state) => const RommAccountScreen(),
+    ),
+    GoRoute(
+      path: Destinations.gameStream,
+      pageBuilder: (context, state) => _opaqueFullScreenPage<void>(
+        state: state,
+        child: GameStreamScreen(
+          libraryId: state.pathParameters['libraryId']!,
+          gameId: state.pathParameters['gameId']!,
+          gameName: state.uri.queryParameters['name'],
+          label: state.uri.queryParameters['label'],
+        ),
+      ),
     ),
     GoRoute(
       path: Destinations.gamePlayer,

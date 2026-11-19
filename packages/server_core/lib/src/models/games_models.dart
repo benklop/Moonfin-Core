@@ -383,8 +383,13 @@ class GameDetail {
   final String? userCoreOverride;
 
   /// Explicit player backend selection. `emulatorjs` forces the WebView even
-  /// when a native libretro core is available; null follows normal routing.
+  /// when a native libretro core is available, and `stream` streams a RomM
+  /// game from RomM's emulator containers; null follows normal routing.
   final String? userBackendOverride;
+
+  /// Set when this RomM game can stream from RomM's emulator containers for
+  /// the signed-in user, or when they must link RomM again to stream it.
+  final GameStreamOffer? stream;
 
   /// Server-provided explanation for why [recommendedCore] (or the sole
   /// available core) was chosen, e.g. "Validated against both installed
@@ -420,6 +425,7 @@ class GameDetail {
     this.supportsBackendOverrides = false,
     this.userCoreOverride,
     this.userBackendOverride,
+    this.stream,
     this.coreCompatibilityReason,
     this.genre,
     this.developer,
@@ -447,6 +453,9 @@ class GameDetail {
         : false,
     userCoreOverride: json['userCoreOverride'] as String?,
     userBackendOverride: json['userBackendOverride'] as String?,
+    stream: json['stream'] is Map
+        ? GameStreamOffer.fromJson((json['stream'] as Map).cast<String, dynamic>())
+        : null,
     coreCompatibilityReason: json['coreCompatibilityReason'] as String?,
     fileName: (json['fileName'] as String?) ?? '',
     sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
@@ -464,6 +473,69 @@ class GameDetail {
     overview: json['overview'] as String?,
     rating: (json['rating'] as num?)?.toDouble(),
   );
+}
+
+/// A RomM game's `stream` field: it can stream from one of RomM's emulator
+/// containers ([label] is RomM's play button text, like "DuckStation"), or the
+/// user's RomM link predates streaming and must be made again.
+class GameStreamOffer {
+  final String? label;
+  final bool needsRelink;
+
+  const GameStreamOffer({this.label, this.needsRelink = false});
+
+  /// The game streams for this user now.
+  bool get available => label != null && !needsRelink;
+
+  factory GameStreamOffer.fromJson(Map<String, dynamic> json) => GameStreamOffer(
+    label: _stringValue(json['label']),
+    needsRelink: json['needsRelink'] == true,
+  );
+}
+
+/// A stream RomM started. [sessionId] goes back on every later call.
+class GameStreamSession {
+  final String sessionId;
+  final String label;
+
+  const GameStreamSession({required this.sessionId, required this.label});
+
+  factory GameStreamSession.fromJson(Map<String, dynamic> json) => GameStreamSession(
+    sessionId: _stringValue(json['sessionId']) ?? '',
+    label: _stringValue(json['label']) ?? '',
+  );
+}
+
+/// Where a stream is: `starting` (with an optional [phase] such as unpacking),
+/// `ready` with the [roomUrl] to open, or `ended`.
+class GameStreamState {
+  final String state;
+  final String? phase;
+  final String? roomUrl;
+
+  const GameStreamState({required this.state, this.phase, this.roomUrl});
+
+  bool get isReady => state == 'ready' && roomUrl != null;
+  bool get hasEnded => state == 'ended';
+
+  factory GameStreamState.fromJson(Map<String, dynamic> json) => GameStreamState(
+    state: _stringValue(json['state']) ?? 'starting',
+    phase: _stringValue(json['phase']),
+    roomUrl: _stringValue(json['roomUrl']),
+  );
+}
+
+/// Why the server couldn't start or keep a stream: `busy`, `alreadyPlaying`,
+/// `needsRelink`, `notLinked`, `unavailable`, `needsCardImport` or
+/// `unreachable`. [romName] names the game holding the container, when known.
+class GameStreamException implements Exception {
+  final String error;
+  final String? romName;
+
+  const GameStreamException(this.error, {this.romName});
+
+  @override
+  String toString() => 'GameStreamException($error)';
 }
 
 /// The signed-in user's RomM link, from /Moonfin/Games/Romm/Account.

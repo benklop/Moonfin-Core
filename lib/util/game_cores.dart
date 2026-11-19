@@ -311,6 +311,15 @@ bool get emulatorJsAvailable =>
     PlatformDetection.isWindows ||
     PlatformDetection.isMacOS;
 
+/// Whether a RomM game can stream here: RomM's stream page needs an embedded
+/// WebView the app can hand a controller to. Not the web build, where the room
+/// would sit in a cross-origin frame, nor Linux or tvOS, which have no WebView.
+bool get gameStreamingAvailable =>
+    PlatformDetection.isIOS ||
+    PlatformDetection.isAndroid ||
+    PlatformDetection.isWindows ||
+    PlatformDetection.isMacOS;
+
 /// Whether the user can choose between the two backends here, which decides if
 /// the settings toggle is shown.
 bool get canToggleGameBackend =>
