@@ -492,6 +492,16 @@ void main() {
     verifyNever(
       () => gamesApi.setGameCoreOverride(any(), any(), core: any(named: 'core')),
     );
+    // The player button says it streams rather than naming EmulatorJS.
+    final player = find.byKey(const ValueKey('gameDetailPlayer'));
+    expect(
+      find.descendant(of: player, matching: find.text('Streaming')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: player, matching: find.text('EmulatorJS')),
+      findsNothing,
+    );
     debugDefaultTargetPlatformOverride = null;
   });
 

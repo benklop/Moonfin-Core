@@ -1502,7 +1502,11 @@ class _PlayerButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              native ? 'Native core' : 'EmulatorJS',
+              _streams(game)
+                  ? 'Streaming'
+                  : native
+                  ? 'Native core'
+                  : 'EmulatorJS',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 12,
@@ -1677,7 +1681,9 @@ class _PlayerCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  native
+                  _streams(game)
+                      ? 'Streams from RomM'
+                      : native
                       ? 'Native core · runs on this device'
                       : 'EmulatorJS · runs in a web view',
                   style: TextStyle(

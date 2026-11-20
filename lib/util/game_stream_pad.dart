@@ -68,8 +68,11 @@ abstract final class GameStreamPad {
     };
   }
   try {
+    // Writable too: the stream page assigns its own getGamepads (in strict
+    // mode, so a read-only one throws and stops the page from starting).
     Object.defineProperty(navigator, 'getGamepads', {
       configurable: true,
+      writable: true,
       value: function () { return [state.connected ? pad() : null, null, null, null]; }
     });
   } catch (e) {}
