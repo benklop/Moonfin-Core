@@ -11,6 +11,7 @@ import 'package:server_core/server_core.dart';
 import '../../../util/desktop_emulator_gamepad.dart';
 import '../../../util/focus/gamepad/android_gamepad_channel.dart';
 import '../../../util/focus/gamepad/gamepad_suppressor.dart';
+import '../../../util/game_stream_native.dart';
 import '../../../util/game_stream_pad.dart';
 import '../../../util/platform_detection.dart';
 import '../../../util/system_ui.dart';
@@ -31,6 +32,9 @@ enum _Phase { starting, playing, failed }
 /// opened at the URL RomM hands out, which carries a token that only works for
 /// this session. Saves and play time are RomM's: its container saves the game
 /// when the session ends, however it ends.
+///
+/// On Android the room plays in [GameStreamNative]'s own activity, which reads
+/// the controller natively; this screen keeps the session behind it.
 class GameStreamScreen extends StatefulWidget {
   const GameStreamScreen({
     super.key,
@@ -83,6 +87,14 @@ class _GameStreamScreenState extends State<GameStreamScreen>
   Timer? _backgroundTimer;
   bool _ended = false;
   bool _exiting = false;
+
+  /// Android plays the room in its own activity rather than in this screen.
+  static bool get _usesNativePlayer => PlatformDetection.isAndroid;
+
+  /// The Android player is showing. This screen's own lifecycle then follows
+  /// the app's main activity, which is stopped behind it, so it's ignored and
+  /// the player reports leaving the app instead.
+  bool _nativeOpen = false;
 
   bool _menuOpen = false;
   int _menuSelected = 0;
@@ -145,7 +157,7 @@ class _GameStreamScreenState extends State<GameStreamScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_phase != _Phase.playing || _ended) return;
+    if (_phase != _Phase.playing || _ended || _nativeOpen) return;
     if (state == AppLifecycleState.resumed) {
       _backgroundTimer?.cancel();
       _backgroundTimer = null;
@@ -192,6 +204,7 @@ class _GameStreamScreenState extends State<GameStreamScreen>
             _phase = _Phase.playing;
           });
           _startHeartbeat();
+          if (_usesNativePlayer) unawaited(_playNative(state.roomUrl!));
           return;
         }
         if (state.hasEnded) {
@@ -211,6 +224,38 @@ class _GameStreamScreenState extends State<GameStreamScreen>
       _fail(describeStreamError(e));
     } catch (e) {
       _fail('Could not start the stream. ($e)');
+    }
+  }
+
+  /// Shows the room in the Android player and acts on how it closed.
+  Future<void> _playNative(String roomUrl) async {
+    _nativeOpen = true;
+    final GameStreamNativeResult result;
+    try {
+      result = await GameStreamNative.open(roomUrl);
+    } on PlatformException catch (e) {
+      _nativeOpen = false;
+      _endSession();
+      _fail('Could not open the stream. (${e.message ?? e.code})');
+      return;
+    }
+    _nativeOpen = false;
+    if (!mounted || _exiting) return;
+    switch (result.outcome) {
+      case GameStreamNativeOutcome.quit:
+        unawaited(_quit());
+      case GameStreamNativeOutcome.background:
+        _endSession();
+        _fail(
+          'The stream ended while Moonfin was in the background. '
+          'RomM saved your game.',
+        );
+      case GameStreamNativeOutcome.error:
+        _endSession();
+        _fail(result.message ?? 'The stream stopped. RomM saved your game.');
+      case GameStreamNativeOutcome.closed:
+        // Closed for a failure this screen already shows, or by Android.
+        if (_phase != _Phase.failed) unawaited(_quit());
     }
   }
 
@@ -241,6 +286,7 @@ class _GameStreamScreenState extends State<GameStreamScreen>
 
   void _fail(String message) {
     _heartbeat?.cancel();
+    if (_nativeOpen) unawaited(GameStreamNative.close());
     if (!mounted) return;
     setState(() {
       _phase = _Phase.failed;
@@ -268,6 +314,7 @@ class _GameStreamScreenState extends State<GameStreamScreen>
     if (_exiting) return;
     _exiting = true;
     _heartbeat?.cancel();
+    if (_nativeOpen) unawaited(GameStreamNative.close());
     if (mounted) {
       setState(() {
         _menuOpen = false;
@@ -388,7 +435,9 @@ class _GameStreamScreenState extends State<GameStreamScreen>
         backgroundColor: Colors.black,
         body: Stack(
           children: [
-            if (_roomUrl != null && _phase != _Phase.failed)
+            if (_roomUrl != null &&
+                _phase != _Phase.failed &&
+                !_usesNativePlayer)
               Positioned.fill(child: _room()),
             if (_phase != _Phase.playing || _exiting) _message(),
             // Touch and mouse have no Back on iOS, and the page keeps Escape.

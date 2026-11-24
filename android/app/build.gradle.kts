@@ -146,6 +146,8 @@ dependencies {
     implementation("eu.simonbinder:sqlite3-native-library:3.52.0")
     implementation("androidx.tvprovider:tvprovider:1.1.0")
     implementation("androidx.work:work-runtime-ktx:2.12.0")
+    // Same version flutter_inappwebview_android brings; GameStreamActivity's document-start pad script.
+    implementation("androidx.webkit:webkit:1.12.0")
 }
 
 val flutterApkOutputDir = layout.buildDirectory.dir("app/outputs/flutter-apk")

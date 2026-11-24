@@ -116,6 +116,7 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
     private var dlnaEventsChannel: EventChannel? = null
     private var dlnaController: DlnaController? = null
     private var externalPlayerChannel: MethodChannel? = null
+    private var gameStreamPendingResult: MethodChannel.Result? = null
     private var externalPlayerPendingResult: MethodChannel.Result? = null
     private var gamepadChannel: MethodChannel? = null
     private var libretroBridge: LibretroBridge? = null
@@ -219,6 +220,7 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
         private const val DLNA_CHANNEL = "com.moonfin/native_dlna"
         private const val DLNA_EVENTS_CHANNEL = "com.moonfin/native_dlna_events"
         private const val EXTERNAL_PLAYER_CHANNEL = "moonfin/external_player"
+        private const val GAME_STREAM_CHANNEL = "org.moonfin.androidtv/game_stream"
         private const val ACTION_PLAY_PAUSE = "org.moonfin.androidtv.ACTION_PIP_PLAY_PAUSE"
         private const val DISMISS_DELAY_MS = 300L
         private const val PLATFORM_CHANNEL = "org.moonfin.androidtv/platform"
@@ -237,6 +239,7 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
         private const val AUDIO_EMIT_DEBOUNCE_MS = 4_000L
         private const val AUDIO_EMIT_MAX_WAIT_MS = 12_000L
         private const val EXTERNAL_PLAYER_PROXY_REQUEST_CODE = 17115
+        private const val GAME_STREAM_REQUEST_CODE = 17116
         private const val EXTRA_EXTERNAL_PLAYER_LAUNCH_INTENT = "moonfin.external_player.launch_intent"
         private const val EXTRA_EXTERNAL_PLAYER_ERROR_CODE = "moonfin.external_player.error_code"
         private const val EXTRA_EXTERNAL_PLAYER_ERROR_MESSAGE = "moonfin.external_player.error_message"
@@ -551,6 +554,20 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
                 "chooseAndLaunch" -> {
                     val args = call.arguments as? Map<*, *> ?: emptyMap<String, Any>()
                     chooseAndLaunchExternalPlayer(args, result)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            GAME_STREAM_CHANNEL,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "open" -> openGameStream(call.arguments as? Map<*, *> ?: emptyMap<String, Any>(), result)
+                "close" -> {
+                    if (gameStreamPendingResult != null) finishActivity(GAME_STREAM_REQUEST_CODE)
+                    result.success(null)
                 }
                 else -> result.notImplemented()
             }
@@ -1919,8 +1936,47 @@ class MainActivity : AudioServiceActivity(), GamepadsCompatibleActivity {
         }
     }
 
+    /** Opens [GameStreamActivity]; [result] gets its outcome when it finishes. */
+    private fun openGameStream(args: Map<*, *>, result: MethodChannel.Result) {
+        val url = (args["url"] as? String)?.trim().orEmpty()
+        if (url.isEmpty()) {
+            result.error("BAD_ARGS", "Missing stream address.", null)
+            return
+        }
+        if (gameStreamPendingResult != null) {
+            result.error("IN_PROGRESS", "A stream is already open.", null)
+            return
+        }
+        gameStreamPendingResult = result
+        try {
+            val intent = Intent(this, GameStreamActivity::class.java).apply {
+                putExtra(GameStreamActivity.EXTRA_URL, url)
+                (args["padScript"] as? String)?.let { putExtra(GameStreamActivity.EXTRA_PAD_SCRIPT, it) }
+                (args["pageScript"] as? String)?.let { putExtra(GameStreamActivity.EXTRA_PAGE_SCRIPT, it) }
+                putExtra(GameStreamActivity.EXTRA_INSPECTABLE, args["inspectable"] == true)
+            }
+            startActivityForResult(intent, GAME_STREAM_REQUEST_CODE)
+        } catch (error: Exception) {
+            gameStreamPendingResult = null
+            result.error("LAUNCH_FAILED", error.message, null)
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        if (requestCode == GAME_STREAM_REQUEST_CODE) {
+            val pendingResult = gameStreamPendingResult
+            gameStreamPendingResult = null
+            pendingResult?.success(
+                mapOf(
+                    // Closed without a result (finishActivity from "close", or the
+                    // system) reads as the stream having ended.
+                    "result" to (data?.getStringExtra(GameStreamActivity.EXTRA_RESULT) ?: "closed"),
+                    "message" to data?.getStringExtra(GameStreamActivity.EXTRA_MESSAGE),
+                ),
+            )
+            return
+        }
         if (requestCode == EXTERNAL_PLAYER_PROXY_REQUEST_CODE) {
             val pendingResult = externalPlayerPendingResult
             externalPlayerPendingResult = null

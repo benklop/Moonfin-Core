@@ -72,6 +72,12 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
         <activity
+            android:name=".GameStreamActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|density|uiMode|navigation" />
+        <activity
             android:name=".ExternalPlayerProxyActivity"
             android:exported="false"
             android:excludeFromRecents="true"

@@ -84,16 +84,37 @@ abstract final class GameStreamPad {
   state.frames.push(announce);
   if (state.connected) setTimeout(announce, 0);
   if (window === top) {
+    function connect() {
+      if (state.connected) return;
+      state.connected = true;
+      state.frames.forEach(function (f) { try { f(); } catch (e) {} });
+    }
     window.moonfinStreamPad = function (index, pressed) {
       var button = state.buttons[index];
       if (!button) return;
       button.pressed = button.touched = !!pressed;
       button.value = pressed ? 1 : 0;
       state.timestamp = performance.now();
-      if (!state.connected) {
-        state.connected = true;
-        state.frames.forEach(function (f) { try { f(); } catch (e) {} });
+      connect();
+    };
+    // The whole pad at once: analog button values (triggers) and the four
+    // stick axes. The Android player sends this on every change.
+    window.moonfinStreamPadSet = function (buttons, axes) {
+      var active = false;
+      for (var i = 0; i < state.buttons.length && i < buttons.length; i++) {
+        var v = +buttons[i] || 0;
+        var b = state.buttons[i];
+        b.value = v;
+        b.pressed = v > 0.1;
+        b.touched = v > 0;
+        if (v > 0) active = true;
       }
+      for (var j = 0; j < state.axes.length && j < axes.length; j++) {
+        state.axes[j] = +axes[j] || 0;
+        if (Math.abs(state.axes[j]) > 0.25) active = true;
+      }
+      state.timestamp = performance.now();
+      if (active) connect();
     };
   }
 })();
@@ -105,4 +126,20 @@ abstract final class GameStreamPad {
     injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
     forMainFrameOnly: false,
   );
+
+  /// Hides the Selkies dashboard (its sidebar and the handle at the left
+  /// edge) in the frame that shows the stream, the one whose `#app` holds the
+  /// `.video-container`. Selkies' touch gamepad stays: on a phone without a
+  /// controller it's the only way to play. Runs after load, more than once.
+  static const String pageScript = r'''
+(function () {
+  var id = 'moonfin-stream-chrome';
+  if (document.getElementById(id)) return;
+  if (!document.querySelector('#app > .video-container')) return;
+  var style = document.createElement('style');
+  style.id = id;
+  style.textContent = '#root,#dashboard-root,#dev-sidebar{display:none !important;}';
+  (document.head || document.documentElement).appendChild(style);
+})();
+''';
 }
